@@ -32,9 +32,28 @@ Designed primarily for IEEE-style two-column academic papers, but works with any
 pip install PyMuPDF google-genai
 ```
 
+### Install in Kiro
+
+1. Clone or download this repository
+2. Open Kiro Powers panel (Command Palette → "Powers")
+3. Click "Add Custom Power" → "Local Directory" or "GitHub Repository"
+4. After installation, edit `~/.kiro/settings/mcp.json` to fix the server path:
+
+```json
+"power-pdf-visual-review-pdf-visual-review": {
+  "command": "python",
+  "args": ["<FULL_PATH_TO_REPO>/pdf-visual-review/server/main.py"],
+  "env": {
+    "GOOGLE_API_KEY": "YOUR_GOOGLE_API_KEY"
+  }
+}
+```
+
+Replace `<FULL_PATH_TO_REPO>` with the absolute path to where you have this repository, and `YOUR_GOOGLE_API_KEY` with your actual key from https://aistudio.google.com/apikey
+
 ### Configuration
 
-Set your Google API key as environment variable, or configure it in the power's mcp.json `env` section.
+Set your Google API key in the `env` section of `~/.kiro/settings/mcp.json` as shown above.
 
 ## Tool Reference
 

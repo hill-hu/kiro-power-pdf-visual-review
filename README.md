@@ -28,20 +28,26 @@ pip install PyMuPDF google-genai
 
 1. Open Kiro Powers panel (Command Palette → "Powers")
 2. Click "Add Custom Power"
-3. Select "Local Directory" or "GitHub Repository"
-4. Provide the path/URL to this directory
+3. Select "GitHub Repository" and enter: `https://github.com/hill-hu/kiro-power-pdf-visual-review`
+4. After installation, edit `~/.kiro/settings/mcp.json` to fix the MCP server path:
+
+```json
+"power-pdf-visual-review-pdf-visual-review": {
+  "command": "python",
+  "args": ["<FULL_PATH_TO_REPO>/pdf-visual-review/server/main.py"],
+  "env": {
+    "GOOGLE_API_KEY": "YOUR_GOOGLE_API_KEY"
+  }
+}
+```
+
+> **Note:** Kiro powers don't auto-install server code. You need to clone this repo locally and point `args` to the absolute path of `server/main.py`.
 
 ### Configure API Key
 
-Set your Google Gemini API key as an environment variable:
-
-```bash
-export GOOGLE_API_KEY="your-api-key-here"
-```
-
-Or update the `env` section in `mcp.json` after installation.
-
 Get a key at: https://aistudio.google.com/apikey
+
+Set it in the `env` section of `~/.kiro/settings/mcp.json` as shown above.
 
 ## Usage
 
