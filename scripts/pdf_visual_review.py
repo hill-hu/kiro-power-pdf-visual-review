@@ -19,20 +19,36 @@ import pymupdf
 from google import genai
 
 
-REVIEW_PROMPT = """You are a professional academic paper layout reviewer.
-Analyze this PDF page image for layout issues. This is from an IEEE-style two-column paper.
+REVIEW_PROMPT = """You are a professional PDF layout quality reviewer.
+Analyze this PDF page image carefully for ANY layout issues.
 
-Check for these specific issues:
-1. **Table rule overflow**: Horizontal lines (from \\toprule, \\midrule, \\bottomrule) that extend beyond their column boundary into the adjacent column. This is the MOST IMPORTANT check.
-2. **Text-figure overlap**: Any text overlapping with figures or vice versa.
-3. **Column boundary violation**: Any content that crosses the gap between left and right columns (except for intentional full-width elements like table* or figure*).
-4. **Caption truncation**: Captions cut off at page edges.
-5. **Margin overflow**: Content extending beyond page margins.
+Check for these specific issues (in priority order):
 
-IMPORTANT CONTEXT:
-- In IEEE two-column papers, `table*` and `figure*` environments are INTENTIONALLY full-width (spanning both columns). These are NOT errors.
-- The page header/footer lines spanning full width are normal.
-- Focus on single-column tables/figures whose rules or content accidentally extend into the adjacent column.
+1. **Text overlap / occlusion (文字重叠/遮挡)**: Look VERY carefully for any text characters that overlap, collide, or occlude each other. This includes:
+   - Adjacent lines of text where characters from one line intrude into the space of another line
+   - Text that is partially hidden behind other text
+   - Characters that touch or overlap vertically (line spacing too tight)
+   - Bullet points or list items where text from adjacent items overlaps
+   This is the MOST IMPORTANT check. Even slight overlap (1-2 pixels) should be reported.
+
+2. **Text-figure/image overlap**: Any text overlapping with figures, images, charts, or decorative elements.
+
+3. **Content overflow**: Text or graphics extending beyond page margins or designated content areas.
+
+4. **Table rule overflow**: Lines or borders extending beyond their intended boundaries.
+
+5. **Column boundary violation**: Content crossing column gaps (for multi-column layouts).
+
+6. **Truncation**: Any text, caption, or content cut off at edges.
+
+7. **Abnormal spacing**: Visibly uneven or inconsistent spacing between lines or paragraphs.
+
+IMPORTANT INSTRUCTIONS:
+- Look at EVERY line of text carefully. Zoom in mentally on dense text areas, tables, and lists.
+- Pay special attention to CJK (Chinese/Japanese/Korean) text which often has tighter spacing.
+- Even MINOR overlap that might be barely visible should be reported.
+- For multi-column or two-column academic papers: `table*` and `figure*` full-width elements are intentional, NOT errors.
+- Page headers/footers spanning full width are normal.
 
 If you find issues, return a JSON array. If no issues found, return an empty array [].
 
@@ -40,9 +56,9 @@ Each issue should be:
 {
   "page": <page_number>,
   "severity": "high" | "medium" | "low",
-  "location": "<description of where on the page>",
+  "location": "<description of where on the page, quote the affected text if possible>",
   "issue": "<what the problem is>",
-  "suggestion": "<how to fix it in LaTeX>"
+  "suggestion": "<how to fix it>"
 }
 
 Return ONLY the JSON array, no other text."""
@@ -76,7 +92,7 @@ def review_pdf(pdf_path: str, pages: str = "") -> list:
         print(f"  Checking page {page_num + 1}/{total_pages}...", file=sys.stderr)
         doc = pymupdf.open(pdf_path)
         page = doc[page_num]
-        zoom = 150 / 72.0
+        zoom = 200 / 72.0
         mat = pymupdf.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat)
         img_bytes = pix.tobytes("png")
