@@ -3,7 +3,6 @@
     "pdf-visual-review": {
       "command": "python",
       "args": ["server/main.py"],
-      "cwd": "${powerDir}",
       "env": {
         "GOOGLE_API_KEY": "GOOGLE_API_KEY"
       }
