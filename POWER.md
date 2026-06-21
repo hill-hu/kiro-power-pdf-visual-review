@@ -14,17 +14,22 @@ This power provides a Gemini-powered visual PDF layout reviewer. Instead of rely
 
 Designed primarily for IEEE-style two-column academic papers, but works with any PDF.
 
-## Available MCP Servers
+## When to Use
 
-- **pdf-visual-review** — Provides the `review_pdf_layout` tool
+After compiling a LaTeX paper (pdflatex, xelatex, latexmk), run the visual review on pages containing tables and figures to catch:
+
+- Table rules extending into adjacent columns (undetectable by LaTeX compiler)
+- Figures overflowing column boundaries
+- Text truncation at page breaks
+- Caption and content overlap
 
 ## Onboarding
 
 ### Prerequisites
 
 - Python 3.10+
-- Google Gemini API key (with vision model access)
-- PyMuPDF library for PDF page rendering
+- PyMuPDF and google-genai libraries
+- Google Gemini API key
 
 ### Installation
 
@@ -32,106 +37,94 @@ Designed primarily for IEEE-style two-column academic papers, but works with any
 pip install PyMuPDF google-genai
 ```
 
-### Install in Kiro
+### Deploy the Script
 
-1. Clone or download this repository
-2. Open Kiro Powers panel (Command Palette → "Powers")
-3. Click "Add Custom Power" → "Local Directory" or "GitHub Repository"
-4. After installation, edit `~/.kiro/settings/mcp.json` to fix the server path:
+Copy `scripts/pdf_visual_review.py` from this power to your project (e.g., `scripts/` directory).
+
+### Get API Key
+
+1. Go to https://aistudio.google.com/apikey
+2. Create or copy your API key
+3. Set as environment variable before running:
+
+```bash
+# Windows PowerShell
+$env:GOOGLE_API_KEY="your-key-here"
+
+# Linux/macOS
+export GOOGLE_API_KEY="your-key-here"
+```
+
+## Usage
+
+### Command Line
+
+```bash
+# Check specific pages (recommended - saves API cost)
+python scripts/pdf_visual_review.py path/to/paper.pdf 5,6,8
+
+# Check all pages
+python scripts/pdf_visual_review.py path/to/paper.pdf
+```
+
+### Output Format
+
+```
+ISSUES FOUND: 2
+  [high] P5 Bottom of right column: Text truncated at page break
+         Fix: Use \pagebreak or \enlargethispage
+  [high] P6 Figure 4: Figure extends into adjacent column
+         Fix: Use \includegraphics[width=\columnwidth]{...}
+```
+
+### Integrate with Kiro Hook
+
+Create a hook that runs after PDF compilation:
 
 ```json
-"power-pdf-visual-review-pdf-visual-review": {
-  "command": "python",
-  "args": ["<FULL_PATH_TO_REPO>/pdf-visual-review/server/main.py"],
-  "env": {
-    "GOOGLE_API_KEY": "YOUR_GOOGLE_API_KEY"
+{
+  "name": "PDF Visual Review",
+  "version": "1.0.0",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": ["shell"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "If this was a PDF compilation (pdflatex/xelatex/latexmk), run: python scripts/pdf_visual_review.py <pdf_path> <pages_with_tables_and_figures>"
   }
 }
-```
-
-Replace `<FULL_PATH_TO_REPO>` with the absolute path to where you have this repository, and `YOUR_GOOGLE_API_KEY` with your actual key from https://aistudio.google.com/apikey
-
-### Configuration
-
-Set your Google API key in the `env` section of `~/.kiro/settings/mcp.json` as shown above.
-
-## Tool Reference
-
-### `review_pdf_layout`
-
-Renders specified PDF pages as images and sends them to Gemini for visual layout review.
-
-**Parameters:**
-- `pdf_path` (string, required): Absolute path to the PDF file
-- `pages` (string, optional): Comma-separated page numbers to check (e.g., "1,3,5"). Defaults to all pages.
-
-**Returns:** JSON list of issues found, each with:
-- `page`: Page number
-- `severity`: "high" | "medium" | "low"
-- `location`: Description of where the issue is on the page
-- `issue`: What the problem is
-- `suggestion`: How to fix it
-
-**Example output:**
-```json
-[
-  {
-    "page": 5,
-    "severity": "high",
-    "location": "Table IV, left column",
-    "issue": "Table horizontal rules (\\toprule, \\midrule, \\bottomrule) extend beyond the left column boundary into the right column area",
-    "suggestion": "Use tabular* with \\columnwidth or wrap with \\resizebox{\\columnwidth}{!}{...} to constrain table width"
-  }
-]
-```
-
-## Common Workflows
-
-### Workflow 1: Check specific pages after compilation
-
-After compiling a LaTeX paper, check pages that contain tables/figures:
-
-```
-Use tool review_pdf_layout with pdf_path="path/to/paper.pdf" and pages="4,5,6"
-```
-
-### Workflow 2: Full document review
-
-Check all pages (costs more tokens but comprehensive):
-
-```
-Use tool review_pdf_layout with pdf_path="path/to/paper.pdf"
 ```
 
 ## Detection Capabilities
 
 | Issue Type | Description | Typical Cause |
 |-----------|-------------|---------------|
-| Table rule overflow | Horizontal lines extend into adjacent column | booktabs rules in single-column table wider than \columnwidth |
+| Table rule overflow | Horizontal lines extend into adjacent column | booktabs rules wider than \columnwidth |
 | Text-figure overlap | Text runs over figure or vice versa | Float placement issues |
 | Column boundary violation | Content crosses the column gap | Overfull boxes, wide equations |
-| Caption truncation | Figure/table caption cut off at page boundary | Insufficient page space |
+| Caption truncation | Caption cut off at page boundary | Insufficient page space |
 | Margin overflow | Content extends beyond page margins | Wide tables or figures |
+| Page break truncation | Text/heading cut off at bottom | Poor page break placement |
 
 ## Best Practices
 
-1. **Check pages with tables first** — table rule overflow is the most common undetected issue in IEEE papers
-2. **Use specific page numbers** to reduce API cost — don't check all 10+ pages unless needed
-3. **Combine with geometric pre-check** — use the fast Python script as a pre-filter, then Gemini for confirmation
-4. **Trust the visual result** — if Gemini says it looks fine, it probably is (vision > geometry heuristics for complex layouts)
+1. **Check pages with tables first** — table rule overflow is the most common undetected issue
+2. **Specify page numbers** to minimize API cost (each page ≈ 1 API call)
+3. **Run after major layout changes** — adding/removing figures, tables, or large text blocks
+4. **Trust the visual result** — Gemini vision > geometric heuristics for complex layouts
+5. **Set GOOGLE_API_KEY** before running — the script will exit with error if not set
 
 ## Troubleshooting
 
-### Error: "API key not configured"
-Set `GOOGLE_API_KEY` environment variable or update mcp.json env section.
+### Error: "GOOGLE_API_KEY not set"
+Set the environment variable before running the script.
 
 ### Error: "Model not available"
 Ensure your API key has access to `gemini-2.5-flash` model.
 
 ### Slow response
-Each page takes 3-8 seconds. For faster results, specify only the pages you need to check.
+Each page takes 3-8 seconds. Specify only the pages you need to check.
 
-## MCP Config Placeholders
-
-- **`GOOGLE_API_KEY`**: Your Google Gemini API key.
-  - **How to get it:** Go to https://aistudio.google.com/apikey and create/copy a key.
+### False positives on full-width elements
+The prompt tells Gemini that `table*` and `figure*` are intentionally full-width. If false positives persist, the prompt can be customized in the script.
